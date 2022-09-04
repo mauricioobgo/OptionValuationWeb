@@ -1,0 +1,6 @@
+name: firebase-app
+channels:
+  - defaults
+dependencies:
+  - python
+prefix: /home/mauricioobgo/anaconda3/envs/firebase-app
