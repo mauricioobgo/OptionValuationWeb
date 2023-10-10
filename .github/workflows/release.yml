@@ -1,10 +1,13 @@
+name: Deploy Option Valuation App
+
 on:
   push:
     branches:
       - master
 
 jobs:
-  job_id:
+  deploy_google_app:
+    runs-on: ubuntu-latest
     permissions:
       contents: 'read'
       id-token: 'write'
