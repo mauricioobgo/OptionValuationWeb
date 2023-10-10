@@ -13,7 +13,7 @@ jobs:
       id-token: 'write'
     defaults:
       run:
-        working-directory: ./google_deploy
+        working-directory: OptionValuationWeb
     steps:
     - uses: 'actions/checkout@v3'
     - id: 'auth'
