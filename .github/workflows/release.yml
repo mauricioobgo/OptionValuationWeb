@@ -11,8 +11,12 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
-
+    defaults:
+      run:
+        working-directory: .
     steps:
+    - name: check dir
+      run: ls -la
     - id: 'auth'
       uses: 'google-github-actions/auth@v1'
       with:
