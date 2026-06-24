@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-numpy
-pandas
-python-dateutil
-pytz
-scipy

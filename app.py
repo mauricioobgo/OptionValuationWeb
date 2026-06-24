@@ -1,19 +1,21 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from class_valuation_calculus import valuation_calculus as valuation
-import logging
+from pydantic import BaseModel, Field
 
-logging.basicConfig(level=logging.DEBUG)
+from class_valuation_calculus import ValuationCalculus
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Option Valuation Web")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-new_valuation_type = valuation()
-
-array_type_option = [
+OPTION_TYPES = [
     "Call Europea",
     "Put Europea",
     "Call Americana",
@@ -21,6 +23,18 @@ array_type_option = [
     "Call BlackScholes",
     "Put BlackScholes",
 ]
+
+BASE_DAYS = 360
+
+
+class CalculationRequest(BaseModel):
+    option_types: list[int]
+    spot: float = Field(..., gt=0)
+    strike: float = Field(..., gt=0)
+    rate: float
+    volatility: float = Field(..., ge=0)
+    time_days: float = Field(..., gt=0)
+    nodes: int = Field(..., gt=0, le=100)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -32,19 +46,24 @@ async def index(request: Request):
 
 @app.get("/process")
 async def process():
-    return {"option_type": array_type_option}
+    return {"option_type": OPTION_TYPES}
 
 
 @app.post("/option_calculation")
-async def option_calculation(request: Request):
-    data_received = await request.json()
-    logging.debug(data_received)
-    valuation_option = {}
-    for type_option_received in data_received[0].split(","):
-        new_valuation_type.construct_info_need_valuate(type_option_received, data_received)
-        if int(type_option_received) < 5:
-            valuation_option[type_option_received] = new_valuation_type.definition_binomial_tree_calculation()
+async def option_calculation(body: CalculationRequest):
+    calculator = ValuationCalculus(
+        spot=body.spot,
+        strike=body.strike,
+        rate=body.rate,
+        volatility=body.volatility,
+        time_years=body.time_days / BASE_DAYS,
+        nodes=body.nodes,
+    )
+    results: dict[str, float] = {}
+    for opt_type in body.option_types:
+        if opt_type < 5:
+            results[str(opt_type)] = calculator.price_binomial(opt_type)
         else:
-            valuation_option[type_option_received] = new_valuation_type.blackSholes_Modeling(type_option_received)
-    logging.debug(valuation_option)
-    return {"finalValue": valuation_option}
+            results[str(opt_type)] = calculator.price_black_scholes(opt_type)
+    logger.info("option_calculation results: %s", results)
+    return {"finalValue": results}

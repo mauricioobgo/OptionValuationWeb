@@ -1,99 +1,88 @@
 $(document).ready(function () {
-    var option_type_selected = "";
-    var values_selected=[];
-    var concatenateTemp="";
+  let optionTypesSelected = [];
+  let optionLabelsSelected = [];
+  let chartInstance = null;
+
+  $.ajax({
+    url: "/process",
+    type: "GET",
+    success: function (response) {
+      response.option_type.forEach(function (label, index) {
+        $("#option_type").append(
+          `<option value="${index + 1}">${label}</option>`
+        );
+      });
+    },
+  });
+
+  $("#option_type").on("change", function () {
+    optionTypesSelected = [];
+    optionLabelsSelected = [];
+    $("option:selected", this).each(function () {
+      optionTypesSelected.push(parseInt($(this).val()));
+      optionLabelsSelected.push($(this).text().trim());
+    });
+  });
+
+  $("#reset_form").click(function () {
+    location.reload();
+  });
+
+  $("#make_calulation").click(function (event) {
+    event.preventDefault();
+
+    if (optionTypesSelected.length === 0 || $("#option_node_calc").val() === "") {
+      alert("Please select an option type and fill in all required fields.");
+      return;
+    }
+
+    var payload = {
+      option_types: optionTypesSelected,
+      spot: parseFloat($("#option_spot").val()),
+      strike: parseFloat($("#option_strike").val()),
+      rate: parseFloat($("#option_rate").val()),
+      volatility: parseFloat($("#option_sd_risk").val()),
+      time_days: parseFloat($("#option_time_years").val()),
+      nodes: parseInt($("#option_node_calc").val()),
+    };
+
     $.ajax({
-        url: "/process",
-        type: 'GET',
-        success: function (response) {
-            var counter = 1;
-            for (i in response.option_type) {
-                $('#option_type').append(`<option id_option_selected="${counter}"> 
-                    ${response.option_type[i]} </option>`);
-                counter += 1;
-            }
-            console.log(response);
+      url: "/option_calculation",
+      type: "POST",
+      data: JSON.stringify(payload),
+      contentType: "application/json; charset=UTF-8",
+      success: function (data_response) {
+        var results = data_response.finalValue;
+        var values = optionTypesSelected.map((id) => results[String(id)]);
+
+        $("#option_value_result").attr("style", "visibility: visible;");
+        $("#results_adding").empty();
+
+        if (chartInstance) {
+          chartInstance.destroy();
         }
+        chartInstance = new Chart($("#myChart"), {
+          type: "bar",
+          data: {
+            labels: optionLabelsSelected,
+            datasets: [{ label: "Option Prices", data: values }],
+          },
+          options: {
+            scales: {
+              yAxes: [{ ticks: { beginAtZero: true } }],
+            },
+          },
+        });
+
+        optionLabelsSelected.forEach(function (label, i) {
+          $("#results_adding").append(
+            `<tr><td>${label}</td><td>${values[i]}</td></tr>`
+          );
+        });
+      },
+      error: function (xhr) {
+        alert("Calculation failed: " + (xhr.responseJSON?.detail || xhr.responseText));
+      },
     });
-/* revisar debido a que no esta seleccionando los multiples datos en el formulario*/ 
-// first initialize the Chosen select
-        $( 'select#option_type').on( 'change', function() {
-            var concatenate_no_log=[];
-            $.each($("option:selected",this), function(){            
-                concatenate_no_log.push($(this).attr('id_option_selected'));
-            });
-            //console.log();
-            values_selected=$(this).val();
-            option_type_selected=concatenate_no_log.join(",");
-            console.log(option_type_selected);
-            console.log(values_selected);
-        } );
-        
-     $('#reset_form').click(function(event){
-         location.reload();
-     });
-    $('#make_calulation').click( function (event) {
-        if ($('#option_node_calc').val() !== "" && option_type_selected!="") {
-            var SendInfo = [option_type_selected, $('#option_spot').val(), 
-            $('#option_strike').val(),
-             $('#option_rate').val(), 
-             $('#option_sd_risk').val(), 
-             $('#option_time_years').val(), 
-             360, 
-             $('#option_node_calc').val()];
-            console.log(SendInfo);
-            $.ajax({
-                url: '/option_calculation',
-                type: "POST",
-                data: JSON.stringify(SendInfo),
-                processData: false,
-                contentType: "application/json; charset=UTF-8",
-                success: function (data_reponse) { 
-                    var dataCumm=[]
-                    for ( i in data_reponse.finalValue){
-                        dataCumm.push(data_reponse.finalValue[i]);
-                    }
-                    $('#option_value_result').attr("style","visibility: visible;");
-                    counter=0;
-                    console.log(data_reponse);
-                    ctx=$("#myChart");
-                    var myChart=new Chart(ctx,{
-                        type:"bar",
-                        data:{
-                            labels:values_selected,
-                            datasets:[{label:'Precios Opciones',
-                                data:dataCumm}] 
-                        },
-                        options:{
-                            scales:{
-                                yAxes:[{
-                                        ticks:{
-                                            beginAtZero:true
-                                        }
-                                }]
-                            }
-                        }
-                    });
-                    for ( i in data_reponse.finalValue){
-                        console.log(i);
-                        console.log(values_selected[counter]);
-                            $('#results_adding').append(`<tr><td>${values_selected[counter]}
-                            </td><td> ${data_reponse.finalValue[i]}</td> </tr>`);
-                            counter += 1;
-
-                    }
-                    
-                     },
-                failure: function (errMsg) {
-                    alert(errMsg);
-                }
-            });
-        } else {
-            alert("Please select an option type and fill in all required fields.");
-            
-        }
-        event.preventDefault();
-    });
-
-
+  });
 });
