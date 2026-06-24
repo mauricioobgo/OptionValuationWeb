@@ -1,14 +1,7 @@
-Flask==2.2.5
-gunicorn==20.1.0
-click
-h11
-itsdangerous
-Jinja2
-MarkupSafe
+fastapi
+uvicorn[standard]
 numpy
 pandas
 python-dateutil
 pytz
 scipy
-six
-Werkzeug

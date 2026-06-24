@@ -89,7 +89,7 @@ $(document).ready(function () {
                 }
             });
         } else {
-            alert("Hola Haga algo y ponga los valores");
+            alert("Please select an option type and fill in all required fields.");
             
         }
         event.preventDefault();
