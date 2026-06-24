@@ -1,0 +1,14 @@
+[project]
+name = "option-valuation-web"
+version = "0.1.0"
+description = "Option valuation web app — binomial tree and Black-Scholes models"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "numpy>=2.2",
+    "scipy>=1.15",
+]
+
+[tool.uv]
+package = false

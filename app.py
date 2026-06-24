@@ -1,52 +1,69 @@
-from flask import Flask,render_template, url_for, request, redirect,jsonify, make_response
-from class_valuation_calculus import valuation_calculus as valuation
-from datetime import datetime
 import logging
-import os
-logging.basicConfig(level=logging.DEBUG)
 
-#Init app
-#falta terminación app
-app=Flask(__name__)
-basedir=os.path.abspath(os.path.dirname(__file__))
-#Initialize Module of Valuation
-new_valuation_type=valuation()
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, Field
 
-array_type_option=['Call Europea','Put Europea','Call Americana','Put Americana','Call BLackScholes','Put BlackScholes']
-@app.route('/')
-def index():
-    template=render_template("index.html")
-    response=make_response(template)
-    response.headers['Cache-Control']="public, max-age=300, smaxage=600"
+from class_valuation_calculus import ValuationCalculus
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Option Valuation Web")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+OPTION_TYPES = [
+    "Call Europea",
+    "Put Europea",
+    "Call Americana",
+    "Put Americana",
+    "Call BlackScholes",
+    "Put BlackScholes",
+]
+
+BASE_DAYS = 360
+
+
+class CalculationRequest(BaseModel):
+    option_types: list[int]
+    spot: float = Field(..., gt=0)
+    strike: float = Field(..., gt=0)
+    rate: float
+    volatility: float = Field(..., ge=0)
+    time_days: float = Field(..., gt=0)
+    nodes: int = Field(..., gt=0, le=100)
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    response = templates.TemplateResponse("index.html", {"request": request})
+    response.headers["Cache-Control"] = "public, max-age=300, s-maxage=600"
     return response
 
-@app.route('/process')
-def process():
-    return jsonify(option_type= array_type_option)
+
+@app.get("/process")
+async def process():
+    return {"option_type": OPTION_TYPES}
 
 
-@app.route("/option_calculation",methods=['POST','GET'])
-def option_calculation():
-    if(request.method=='POST'):
-        data_received=request.get_json()
-        logging.debug(data_received)
-        valuation_option={}
-        for  type_option_received in data_received[0].split(","):
-            new_valuation_type.construct_info_need_valuate(type_option_received,data_received)
-            if(int(type_option_received)<5):
-                valuation_option[type_option_received]=new_valuation_type.definition_binomial_tree_calculation()
-            else:
-                valuation_option[type_option_received]=new_valuation_type.blackSholes_Modeling(type_option_received)
-                
-        logging.debug(data_received)
-        logging.debug(valuation_option)
-        
-        #logging.debug(valuation_option)
-        return jsonify(finalValue=valuation_option)
-    else:
-        calculationbinomial_realized="Error_Not promoted"
-        return jsonify(finalValue=calculationbinomial_realized)    
-            
-    
-if __name__=="__main__":
-    app.run()
+@app.post("/option_calculation")
+async def option_calculation(body: CalculationRequest):
+    calculator = ValuationCalculus(
+        spot=body.spot,
+        strike=body.strike,
+        rate=body.rate,
+        volatility=body.volatility,
+        time_years=body.time_days / BASE_DAYS,
+        nodes=body.nodes,
+    )
+    results: dict[str, float] = {}
+    for opt_type in body.option_types:
+        if opt_type < 5:
+            results[str(opt_type)] = calculator.price_binomial(opt_type)
+        else:
+            results[str(opt_type)] = calculator.price_black_scholes(opt_type)
+    logger.info("option_calculation results: %s", results)
+    return {"finalValue": results}
